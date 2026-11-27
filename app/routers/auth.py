@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.config import TOKEN_TTL_SECONDS
 from app.db import get_db
-from app.schemas import TokenOut, UserCredentials, UserOut
+from app.schemas import LoginRequest, TokenOut, UserCredentials, UserOut
 from app.security import bearer, current_user, hash_password, issue_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,7 +24,7 @@ async def register(body: UserCredentials, db: aiosqlite.Connection = Depends(get
 
 
 @router.post("/token", response_model=TokenOut)
-async def login(body: UserCredentials, db: aiosqlite.Connection = Depends(get_db)):
+async def login(body: LoginRequest, db: aiosqlite.Connection = Depends(get_db)):
     async with db.execute(
         "SELECT id, password_hash FROM users WHERE username = ?", (body.username,)
     ) as cur:

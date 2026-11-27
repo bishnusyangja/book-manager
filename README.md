@@ -172,7 +172,7 @@ Response `201`:
 `409` if the username is already taken.
 
 #### `POST /auth/token`
-Logs in. The body is the same as `/auth/register`.
+Logs in with `{"username": "...", "password": "..."}`. The register length rules don't apply here: any wrong, unknown or missing credentials return `401`. Only a malformed body (bad JSON or non-string fields) returns `400`.
 
 Response `200`:
 ```json

@@ -68,7 +68,23 @@ def test_token_unknown_user(client):
 
 
 def test_token_missing_fields(client):
-    assert client.post("/auth/token", json={}).status_code == 400
+    assert client.post("/auth/token", json={}).status_code == 401
+
+
+def test_token_short_wrong_password(client):
+    # Register rules (min lengths) must not apply to login.
+    res = client.post("/auth/token", json={"username": "admin", "password": "wrong"})
+    assert res.status_code == 401
+
+
+def test_token_short_unknown_username(client):
+    res = client.post("/auth/token", json={"username": "x", "password": "y"})
+    assert res.status_code == 401
+
+
+def test_token_non_string_fields(client):
+    res = client.post("/auth/token", json={"username": 123, "password": ["a"]})
+    assert res.status_code == 400
 
 
 def test_tokens_are_unique(client):

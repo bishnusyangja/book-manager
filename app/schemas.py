@@ -6,6 +6,13 @@ class UserCredentials(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class LoginRequest(BaseModel):
+    # No length rules here: any wrong or missing credentials must give 401,
+    # not a 400 validation error.
+    username: str = ""
+    password: str = ""
+
+
 class UserOut(BaseModel):
     id: int
     username: str
