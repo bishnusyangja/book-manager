@@ -236,8 +236,26 @@ def test_get_missing_book(client, auth):
     assert res.json() == {"detail": "Book not found"}
 
 
-def test_get_book_non_integer_id(client, auth):
-    assert client.get("/books/abc", headers=auth).status_code == 400
+@pytest.mark.parametrize("book_id", ["nonexistent", "abc", "-1", "1.5", "0", "999999"])
+def test_unknown_ids_return_404(client, auth, make_book, book_id):
+    make_book()
+    body = {"title": "x", "author": "y"}
+    assert client.get(f"/books/{book_id}", headers=auth).status_code == 404
+    assert client.put(f"/books/{book_id}", json=body, headers=auth).status_code == 404
+    assert client.delete(f"/books/{book_id}", headers=auth).status_code == 404
+
+
+def test_put_missing_book_with_bad_body_is_404(client, auth):
+    assert client.put("/books/nonexistent", json={}, headers=auth).status_code == 404
+    assert client.put("/books/999", content=b"{bad", headers=auth).status_code == 404
+
+
+def test_put_malformed_json_on_existing_book_is_400(client, auth, make_book):
+    book = make_book()
+    res = client.put(
+        f"/books/{book['id']}", content=b"{bad", headers={**auth, "Content-Type": "application/json"}
+    )
+    assert res.status_code == 400
 
 
 # ---- boss level: full flow (level 8) ----

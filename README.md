@@ -128,9 +128,9 @@ All request and response bodies are JSON. Endpoints marked **Auth** need the hea
 | POST | `/auth/logout` | ✓ | Revoke the current token | `204` | `401` |
 | GET | `/books` | ✓ | List, search and paginate books | `200` | `400`, `401` |
 | POST | `/books` | ✓ | Create a book | `201` | `400`, `401` |
-| GET | `/books/{book_id}` | ✓ | Get one book | `200` | `400`, `401`, `404` |
+| GET | `/books/{book_id}` | ✓ | Get one book | `200` | `401`, `404` |
 | PUT | `/books/{book_id}` | ✓ | Replace a book | `200` | `400`, `401`, `404` |
-| DELETE | `/books/{book_id}` | ✓ | Delete a book | `204` | `400`, `401`, `404` |
+| DELETE | `/books/{book_id}` | ✓ | Delete a book | `204` | `401`, `404` |
 | GET | `/docs` | — | Interactive API docs (Swagger UI) | `200` | — |
 | GET | `/redoc` | — | Alternative API docs (ReDoc) | `200` | — |
 | GET | `/openapi.json` | — | OpenAPI specification | `200` | — |
@@ -235,7 +235,7 @@ Response `201`:
 Returns one book, or `404` if it doesn't exist.
 
 #### `PUT /books/{book_id}` — Auth
-Replaces all fields of a book. The body is the same as `POST /books`. A field left out (such as `year`) is cleared. Returns the updated book, or `404`.
+Replaces all fields of a book. The body is the same as `POST /books`. A field left out (such as `year`) is cleared. Returns the updated book. A missing book is always `404`, even if the body is invalid.
 
 #### `DELETE /books/{book_id}` — Auth
 Deletes a book. Returns `204` with no body, or `404`.
@@ -244,9 +244,9 @@ Deletes a book. Returns `204` with no body, or `404`.
 
 | Status | When | Body |
 |---|---|---|
-| `400` | Invalid body, malformed JSON, bad query parameter or non-numeric `book_id` | `{"detail": "Validation failed", "errors": [{"field": "...", "message": "..."}]}` |
+| `400` | Invalid body, malformed JSON or bad query parameter | `{"detail": "Validation failed", "errors": [{"field": "...", "message": "..."}]}` |
 | `401` | Missing, invalid, expired or revoked token, or wrong login | `{"detail": "..."}` |
-| `404` | Book not found | `{"detail": "Book not found"}` |
+| `404` | No book with that `book_id` (including non-numeric ids like `/books/abc`) | `{"detail": "Book not found"}` |
 | `409` | Username already taken | `{"detail": "Username already taken"}` |
 
 Validation errors return `400` instead of FastAPI's default `422`.
