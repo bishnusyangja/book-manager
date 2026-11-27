@@ -204,9 +204,9 @@ Book fields:
 | Field | Type | Rules |
 |---|---|---|
 | `id` | integer | set by the server |
-| `title` | string | required, 1–255 characters |
-| `author` | string | required, 1–255 characters |
-| `year` | integer or null | optional, 0–9999 |
+| `title` | string | required, 1–255 characters after trimming spaces (`"   "` is rejected) |
+| `author` | string | required, 1–255 characters after trimming spaces |
+| `year` | integer or null | optional, 0–9999; must be a real number (`true` or `"1965"` are rejected) |
 
 #### `GET /books` — Auth
 Returns a JSON array of books, ordered by `id`.
@@ -248,9 +248,16 @@ Deletes a book. Returns `204` with no body, or `404`.
 | `400` | Invalid body, malformed JSON or bad query parameter | `{"detail": "Validation failed", "errors": [{"field": "...", "message": "..."}]}` |
 | `401` | Missing, invalid, expired or revoked token, or wrong login | `{"detail": "..."}` |
 | `404` | No book with that `book_id` (including non-numeric ids like `/books/abc`) | `{"detail": "Book not found"}` |
+| `405` | Wrong method for a URL (e.g. `PATCH /books/1`) | `{"detail": "Method Not Allowed"}` |
 | `409` | Username already taken | `{"detail": "Username already taken"}` |
+| `500` | Unexpected server error (details go to the server log, never the client) | `{"detail": "Internal server error"}` |
 
-Validation errors return `400` instead of FastAPI's default `422`.
+Validation errors return `400` instead of FastAPI's default `422`. Each error names the `field` it's about. Problems with the body as a whole use `"field": "body"`, with one of these messages:
+- `Request body is required`: no body was sent
+- `Request body is not valid JSON`
+- `Request body must be a JSON object`: for example, a list was sent
+
+Unknown URLs return `404` with `{"detail": "Not Found"}`.
 
 ### Implementation notes
 

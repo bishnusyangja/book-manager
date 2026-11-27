@@ -1,8 +1,14 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StrictInt, StringConstraints
+
+# Text that must contain something besides spaces: surrounding whitespace is
+# trimmed first, so "   " counts as empty and is rejected with 400.
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
 
 class UserCredentials(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
+    username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=50)]
     password: str = Field(min_length=6, max_length=128)
 
 
@@ -26,9 +32,10 @@ class TokenOut(BaseModel):
 
 
 class BookIn(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
-    author: str = Field(min_length=1, max_length=255)
-    year: int | None = Field(default=None, ge=0, le=9999)
+    title: Name
+    author: Name
+    # Strict: true/false or "1965" are rejected instead of silently converted.
+    year: StrictInt | None = Field(default=None, ge=0, le=9999)
 
 
 class BookOut(BookIn):

@@ -202,6 +202,13 @@ def test_invalid_pagination_params(client, auth, params):
         {"title": "Dune", "author": "Frank Herbert", "year": -1},
         {"title": "Dune", "author": "Frank Herbert", "year": "soon"},
         {"title": None, "author": "Frank Herbert"},
+        {"title": "   ", "author": "Frank Herbert"},               # blank title
+        {"title": "Dune", "author": "\t\n "},                      # blank author
+        {"title": "Dune", "author": "Frank Herbert", "year": True},
+        {"title": "Dune", "author": "Frank Herbert", "year": "1965"},
+        {"title": "Dune", "author": "Frank Herbert", "year": 1965.5},
+        {"title": 123, "author": "Frank Herbert"},
+        {"title": ["Dune"], "author": "Frank Herbert"},
     ],
 )
 def test_create_book_invalid(client, auth, body):
@@ -285,3 +292,70 @@ def test_full_flow(client):
 
     assert client.post("/auth/logout", headers=h).status_code == 204
     assert client.get("/books", headers=h).status_code == 401
+
+
+# ---- graceful error messages ----
+
+def _errors(res):
+    assert res.status_code == 400
+    return res.json()["errors"]
+
+
+def test_titles_are_trimmed(client, auth):
+    res = client.post("/books", json={"title": "  Dune ", "author": " Frank Herbert "}, headers=auth)
+    assert res.status_code == 201
+    assert (res.json()["title"], res.json()["author"]) == ("Dune", "Frank Herbert")
+
+
+def test_missing_body_error(client, auth):
+    assert _errors(client.post("/books", headers=auth)) == [
+        {"field": "body", "message": "Request body is required"}
+    ]
+
+
+def test_malformed_json_error(client, auth):
+    res = client.post("/books", content=b"{bad", headers={**auth, "Content-Type": "application/json"})
+    assert _errors(res) == [{"field": "body", "message": "Request body is not valid JSON"}]
+
+
+@pytest.mark.parametrize("body", [[], "text", 5, None])
+def test_non_object_body_error(client, auth, body):
+    errors = _errors(client.post("/books", json=body, headers=auth))
+    assert errors[0]["field"] == "body"
+
+
+def test_put_invalid_body_reports_fields(client, auth, make_book):
+    book = make_book()
+    errors = _errors(client.put(f"/books/{book['id']}", json={"title": " "}, headers=auth))
+    assert {e["field"] for e in errors} == {"title", "author"}
+
+
+def test_failed_put_leaves_book_unchanged(client, auth, make_book):
+    book = make_book("Dune", "Frank Herbert")
+    client.put(f"/books/{book['id']}", json={"title": ""}, headers=auth)
+    assert client.get(f"/books/{book['id']}", headers=auth).json() == book
+
+
+def test_unknown_route_is_404(client):
+    res = client.get("/does-not-exist")
+    assert res.status_code == 404
+    assert "detail" in res.json()
+
+
+def test_wrong_method_is_405(client, auth):
+    assert client.patch("/books/1", headers=auth).status_code == 405
+
+
+def test_unexpected_error_returns_json_500(client, auth, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import app.main
+
+    def boom(_token):
+        raise RuntimeError("database exploded")
+
+    monkeypatch.setattr(app.security, "decode_token", boom)
+    with TestClient(app.main.app, raise_server_exceptions=False) as c:
+        res = c.get("/books", headers=auth)
+    assert res.status_code == 500
+    assert res.json() == {"detail": "Internal server error"}

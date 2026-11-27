@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -24,21 +25,44 @@ async def lifespan(_: FastAPI):
     yield
 
 
+logger = logging.getLogger("book_manager")
+
 app = FastAPI(title="Book Manager API", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(books.router)
 
 
+def _describe(error: dict) -> dict:
+    """Turn one pydantic error into {"field", "message"} for API clients."""
+    loc = [str(p) for p in error["loc"][1:]]  # drop "body" / "query" / "path"
+    if error["type"] == "json_invalid":
+        return {"field": "body", "message": "Request body is not valid JSON"}
+    if not loc:
+        if error["type"] == "missing":
+            return {"field": "body", "message": "Request body is required"}
+        return {"field": "body", "message": "Request body must be a JSON object"}
+    return {"field": ".".join(loc), "message": error["msg"]}
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_error(_: Request, exc: RequestValidationError):
     # Invalid input -> 400 Bad Request (FastAPI's default is 422).
-    errors = [
-        {"field": ".".join(str(p) for p in e["loc"][1:]), "message": e["msg"]}
-        for e in exc.errors()
-    ]
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": "Validation failed", "errors": errors},
+        content={
+            "detail": "Validation failed",
+            "errors": [_describe(e) for e in exc.errors()],
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(_: Request, exc: Exception):
+    # Never leak a stack trace; always answer with JSON.
+    logger.exception("Unhandled error", exc_info=exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error"},
     )
 
 
