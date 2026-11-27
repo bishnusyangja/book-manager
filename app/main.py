@@ -44,7 +44,7 @@ async def validation_error(_: Request, exc: RequestValidationError):
 
 @app.get("/", tags=["meta"])
 async def root():
-    return {"message": "Hello, World!"}
+    return {"message": "Welcome to Book Manager By Bishnu"}
 
 
 @app.get("/ping", tags=["meta"])

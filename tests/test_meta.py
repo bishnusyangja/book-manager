@@ -1,7 +1,7 @@
 def test_root(client):
     res = client.get("/")
     assert res.status_code == 200
-    assert res.json() == {"message": "Hello, World!"}
+    assert res.json() == {"message": "Welcome to Book Manager By Bishnu"}
 
 
 def test_ping(client):
