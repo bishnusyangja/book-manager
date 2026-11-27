@@ -5,9 +5,12 @@ from pydantic import ValidationError
 
 from app.db import get_db
 from app.schemas import BookIn, BookOut
-from app.security import require_auth
+from app.security import require_auth, require_auth_for_book_changes
 
-router = APIRouter(prefix="/books", tags=["books"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/books", tags=["books"])
+
+# Only the book list is protected by default (see AUTH_ALL_BOOKS in config.py).
+_changes_guard = [Depends(require_auth_for_book_changes)]
 
 
 async def _get_or_404(db: aiosqlite.Connection, book_id: str) -> dict:
@@ -23,7 +26,7 @@ async def _get_or_404(db: aiosqlite.Connection, book_id: str) -> dict:
     return dict(row)
 
 
-@router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED, dependencies=_changes_guard)
 async def create_book(body: BookIn, db: aiosqlite.Connection = Depends(get_db)):
     cur = await db.execute(
         "INSERT INTO books (title, author, year) VALUES (?, ?, ?)",
@@ -33,7 +36,7 @@ async def create_book(body: BookIn, db: aiosqlite.Connection = Depends(get_db)):
     return BookOut(id=cur.lastrowid, **body.model_dump())
 
 
-@router.get("", response_model=list[BookOut])
+@router.get("", response_model=list[BookOut], dependencies=[Depends(require_auth)])
 async def list_books(
     author: str | None = None,
     page: int | None = Query(default=None, ge=1),
@@ -54,7 +57,7 @@ async def list_books(
         return [dict(r) for r in await cur.fetchall()]
 
 
-@router.get("/{book_id}", response_model=BookOut)
+@router.get("/{book_id}", response_model=BookOut, dependencies=_changes_guard)
 async def get_book(book_id: str, db: aiosqlite.Connection = Depends(get_db)):
     return await _get_or_404(db, book_id)
 
@@ -62,6 +65,7 @@ async def get_book(book_id: str, db: aiosqlite.Connection = Depends(get_db)):
 @router.put(
     "/{book_id}",
     response_model=BookOut,
+    dependencies=_changes_guard,
     openapi_extra={
         "requestBody": {
             "required": True,
@@ -87,7 +91,7 @@ async def update_book(book_id: str, request: Request, db: aiosqlite.Connection =
     return BookOut(id=book["id"], **body.model_dump())
 
 
-@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=_changes_guard)
 async def delete_book(book_id: str, db: aiosqlite.Connection = Depends(get_db)):
     book = await _get_or_404(db, book_id)
     await db.execute("DELETE FROM books WHERE id = ?", (book["id"],))

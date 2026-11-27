@@ -4,6 +4,34 @@ import app.security
 
 # ---- auth guard (level 5) ----
 
+def test_list_requires_auth(client):
+    assert client.get("/books").status_code == 401
+
+
+def test_other_book_routes_are_public_by_default(client):
+    # The API Quest spec only protects GET /books; levels 3, 4 and 7 call the
+    # other routes without a token.
+    created = client.post("/books", json={"title": "Dune", "author": "Frank Herbert"})
+    assert created.status_code == 201
+    book_id = created.json()["id"]
+    assert client.get(f"/books/{book_id}").status_code == 200
+    assert client.put(f"/books/{book_id}", json={"title": "D", "author": "F"}).status_code == 200
+    assert client.delete(f"/books/{book_id}").status_code == 204
+
+
+def test_level7_checks_without_token(client):
+    assert client.post("/books", json={"author": "x"}).status_code == 400
+    assert client.post("/books", json={"title": "x"}).status_code == 400
+    assert client.get("/books/nonexistent").status_code == 404
+    assert client.put("/books/nonexistent", json={"title": "x", "author": "y"}).status_code == 404
+
+
+def test_public_routes_ignore_stale_tokens(client):
+    stale = {"Authorization": "Bearer old-token-from-a-previous-deploy"}
+    assert client.post("/books", json={"author": "x"}, headers=stale).status_code == 400
+    assert client.get("/books/nonexistent", headers=stale).status_code == 404
+
+
 @pytest.mark.parametrize(
     "method,path",
     [
@@ -14,7 +42,8 @@ import app.security
         ("delete", "/books/1"),
     ],
 )
-def test_books_require_auth(client, method, path):
+def test_all_routes_require_auth_when_enabled(client, monkeypatch, method, path):
+    monkeypatch.setattr(app.security, "AUTH_ALL_BOOKS", True)
     res = client.request(method, path, json={"title": "x", "author": "y"})
     assert res.status_code == 401
 

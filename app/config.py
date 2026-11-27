@@ -2,8 +2,12 @@ import os
 
 DB_PATH = os.getenv("DB_PATH", "books.db")
 TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", "86400"))  # 24 hours
-# Set AUTH_REQUIRED=false to make /books public.
+# GET /books (the book list) needs a token unless AUTH_REQUIRED=false.
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() != "false"
+# Set AUTH_ALL_BOOKS=true to also require a token for creating, reading one,
+# updating and deleting books. Off by default to match the API Quest spec,
+# which only protects GET /books.
+AUTH_ALL_BOOKS = os.getenv("AUTH_ALL_BOOKS", "false").lower() == "true"
 # Seeded on startup so there is always a user that can log in.
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "password")

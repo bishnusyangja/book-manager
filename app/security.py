@@ -9,7 +9,7 @@ import aiosqlite
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.config import AUTH_REQUIRED, SECRET_KEY, TOKEN_TTL_SECONDS
+from app.config import AUTH_ALL_BOOKS, AUTH_REQUIRED, SECRET_KEY, TOKEN_TTL_SECONDS
 from app.db import get_db
 
 _ITERATIONS = 200_000
@@ -124,9 +124,19 @@ async def require_auth(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: aiosqlite.Connection = Depends(get_db),
 ) -> dict | None:
-    """Guard for /books; a no-op when AUTH_REQUIRED=false. Only the token
+    """Guard for GET /books; a no-op when AUTH_REQUIRED=false. Only the token
     signature, expiry and logout status are checked, so a valid token keeps
     working even if the database was reset by a redeploy."""
     if not AUTH_REQUIRED:
+        return None
+    return await valid_claims(creds, db)
+
+
+async def require_auth_for_book_changes(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: aiosqlite.Connection = Depends(get_db),
+) -> dict | None:
+    """Guard for the other /books routes; only active when AUTH_ALL_BOOKS=true."""
+    if not (AUTH_REQUIRED and AUTH_ALL_BOOKS):
         return None
     return await valid_claims(creds, db)
