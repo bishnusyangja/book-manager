@@ -33,7 +33,6 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appuser /app /app
 
 USER appuser
-VOLUME ["/app/data"]
 EXPOSE 8000
 
 # PORT can be overridden by hosts like Render/Railway/Fly.io.
