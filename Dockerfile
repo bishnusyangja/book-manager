@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---- Build stage: install dependencies with uv ----
 FROM python:3.13-slim AS builder
 
@@ -13,8 +11,7 @@ WORKDIR /app
 
 # Install dependencies first so this layer is cached until the lockfile changes.
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project --no-cache
 
 COPY app ./app
 COPY docker ./docker
