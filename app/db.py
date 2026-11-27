@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS tokens (
-    token      TEXT PRIMARY KEY,
-    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+DROP TABLE IF EXISTS tokens;
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    jti        TEXT PRIMARY KEY,
     expires_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS books (

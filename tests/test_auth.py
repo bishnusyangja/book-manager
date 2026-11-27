@@ -1,5 +1,6 @@
 import time
 
+import app.db
 import app.security
 from tests.conftest import ADMIN
 
@@ -149,8 +150,48 @@ def test_me_with_wrong_scheme(client, token):
 
 def test_expired_token_is_rejected(client, auth, monkeypatch):
     real_time = time.time
-    monkeypatch.setattr(app.security.time, "time", lambda: real_time() + 10_000)
+    monkeypatch.setattr(app.security.time, "time", lambda: real_time() + 25 * 3600)
     assert client.get("/auth/me", headers=auth).status_code == 401
+
+
+def test_token_lasts_at_least_23_hours(client, auth, monkeypatch):
+    real_time = time.time
+    monkeypatch.setattr(app.security.time, "time", lambda: real_time() + 23 * 3600)
+    assert client.get("/auth/me", headers=auth).status_code == 200
+
+
+def test_token_survives_database_reset(client, auth, tmp_path):
+    # Simulates a redeploy without a persistent volume: the database file is
+    # deleted and recreated on startup, but issued tokens must keep working.
+    import os
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+
+    os.remove(app.db.DB_PATH)
+    with TestClient(app.main.app) as fresh:
+        assert fresh.get("/books", headers=auth).status_code == 200
+        assert fresh.get("/auth/me", headers=auth).json()["username"] == "admin"
+
+
+def test_tampered_token_is_rejected(client, token):
+    payload, sig = token.split(".")
+    other = client.post("/auth/token", json=ADMIN).json()["token"]
+    forged = f"{other.split('.')[0]}.{sig}"
+    for bad in [forged, payload, token + "x", "a.b", "a.b.c", ""]:
+        res = client.get("/books", headers={"Authorization": f"Bearer {bad}"})
+        assert res.status_code == 401, bad
+
+
+def test_token_from_another_key_is_rejected(client, token, monkeypatch):
+    monkeypatch.setattr(app.security, "_KEY", b"different-secret")
+    assert client.get("/books", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+
+
+def test_logout_survives_for_books_too(client, auth):
+    client.post("/auth/logout", headers=auth)
+    assert client.get("/books", headers=auth).status_code == 401
 
 
 # ---- logout ----

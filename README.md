@@ -84,7 +84,8 @@ All settings are environment variables:
 | `DB_PATH` | `books.db` (`/app/data/books.db` in Docker) | Path to the SQLite database file |
 | `ADMIN_USERNAME` | `admin` | Username of the user created at startup |
 | `ADMIN_PASSWORD` | `password` | Password of the user created at startup |
-| `TOKEN_TTL_SECONDS` | `3600` | How long a login token stays valid |
+| `TOKEN_TTL_SECONDS` | `86400` (24 hours) | How long a login token stays valid |
+| `SECRET_KEY` | derived from the admin username and password | Key that signs login tokens. Set a long random value in production. Changing it logs everyone out |
 | `AUTH_REQUIRED` | `true` | Set to `false` to make `/books` endpoints public |
 | `PORT` | `8000` | Port the server listens on (Docker only) |
 
@@ -192,7 +193,7 @@ Returns the logged-in user.
 ```
 
 #### `POST /auth/logout` — Auth
-Revokes the token used in the request. Other tokens for the same user keep working. Returns `204` with no body.
+Revokes the token used in the request. Other tokens for the same user keep working. Returns `204` with no body. A revocation is stored in the database, so a reset database forgets it.
 
 ### Books
 
@@ -253,7 +254,7 @@ Validation errors return `400` instead of FastAPI's default `422`.
 
 ### Implementation notes
 
-- **Storage:** SQLite through `aiosqlite`, with tables `users`, `tokens` and `books`. They're created at startup if missing.
+- **Storage:** SQLite through `aiosqlite`, with tables `users`, `revoked_tokens` and `books`. They're created at startup if missing.
 - **Passwords:** hashed with PBKDF2-HMAC-SHA256 (200,000 iterations, random 16-byte salt per user).
-- **Tokens:** random 32-byte URL-safe strings stored in the `tokens` table with an expiry time. Expired tokens are cleaned up on each login.
+- **Tokens:** signed with HMAC-SHA256 using `SECRET_KEY`; each carries the username, an expiry time and a unique id. The app checks the signature instead of looking the token up in the database, so tokens keep working after a restart or a redeploy that resets the database. Logged-out token ids go in the `revoked_tokens` table until they expire.
 - **Default user:** `ADMIN_USERNAME` / `ADMIN_PASSWORD` is created at startup if it doesn't exist yet. Changing the password variable later doesn't update an existing user.
