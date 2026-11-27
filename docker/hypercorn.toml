@@ -1,0 +1,9 @@
+# Hypercorn settings. `bind` is set by docker/entrypoint.sh from $PORT.
+# Keep a single worker: SQLite on one volume does not benefit from more.
+workers = 1
+worker_class = "asyncio"
+accesslog = "-"
+errorlog = "-"
+loglevel = "INFO"
+keep_alive_timeout = 75   # longer than proxy idle timeouts, avoids stray 502s
+graceful_timeout = 10

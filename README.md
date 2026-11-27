@@ -37,6 +37,36 @@ docker run -p 8000:8000 -v book-data:/app/data \
   book-manager
 ```
 
+In the container the app runs on [Hypercorn](https://hypercorn.readthedocs.io/), an async ASGI server. `docker/entrypoint.sh` does three things before starting it:
+- makes the data folder writable (hosts often mount volumes owned by root), then drops to the unprivileged `appuser`
+- listens on `$PORT`
+- listens on both IPv6 and IPv4 when the container supports IPv6
+
+Server settings are in `docker/hypercorn.toml`.
+
+### With nginx (docker compose)
+
+For a self-hosted server, `docker-compose.yml` runs nginx in front of the app:
+
+```bash
+ADMIN_PASSWORD=something-strong docker compose up -d --build
+```
+
+nginx listens on port 80 (set `NGINX_PORT` to change it) and forwards to the app. Its config is in `nginx/nginx.conf`. `GET /nginx-health` checks nginx itself.
+
+## Deploy to Railway
+
+Railway builds the `Dockerfile` directly and has its own proxy, so nginx is not used there. `railway.json` sets the Dockerfile builder, the `/ping` health check and the restart policy.
+
+1. New Project → **Deploy from GitHub repo** → pick this repo, branch `master`.
+2. Add a **volume** with mount path `/app/data`.
+3. Add the variables **before the first deploy**:
+   - `ADMIN_PASSWORD`: a strong password
+   - `PORT`: `8000`
+4. Settings → Networking → **Generate Domain** with target port **`8000`**.
+
+The domain's target port must match `PORT`, or Railway returns `502 Bad Gateway`. The deploy log should show `Starting Hypercorn on [::]:8000`.
+
 ## Run the tests
 
 ```bash

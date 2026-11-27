@@ -7,3 +7,7 @@
 Dockerfile
 .dockerignore
 README.md
+docker-compose.yml
+nginx
+railway.json
+tests
