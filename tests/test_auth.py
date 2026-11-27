@@ -82,9 +82,32 @@ def test_token_short_unknown_username(client):
     assert res.status_code == 401
 
 
-def test_token_non_string_fields(client):
-    res = client.post("/auth/token", json={"username": 123, "password": ["a"]})
-    assert res.status_code == 400
+import pytest
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},                                                        # no body at all
+        {"content": b""},                                          # empty body
+        {"content": b"{not json", "headers": {"Content-Type": "application/json"}},
+        {"json": None},
+        {"json": []},
+        {"json": "admin"},
+        {"json": {"username": 123, "password": ["a"]}},            # wrong types
+        {"json": {"username": "admin"}},                           # missing password
+        {"json": {"user": "admin", "pass": "password"}},           # wrong field names
+        {"data": {"username": "admin", "password": "nope"}},       # form, wrong password
+        {"content": b"username=admin&password=wrong", "headers": {"Content-Type": "text/plain"}},
+    ],
+)
+def test_token_bad_requests_return_401(client, kwargs):
+    assert client.post("/auth/token", **kwargs).status_code == 401
+
+
+def test_token_form_body_with_right_password(client):
+    res = client.post("/auth/token", data={"username": "admin", "password": "password"})
+    assert res.status_code == 200
 
 
 def test_tokens_are_unique(client):

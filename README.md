@@ -123,7 +123,7 @@ All request and response bodies are JSON. Endpoints marked **Auth** need the hea
 | GET | `/ping` | — | Health check | `200` | — |
 | POST | `/echo` | — | Returns the JSON body it receives | `200` | `400` |
 | POST | `/auth/register` | — | Create a user | `201` | `400`, `409` |
-| POST | `/auth/token` | — | Log in and get a bearer token | `200` | `400`, `401` |
+| POST | `/auth/token` | — | Log in and get a bearer token | `200` | `401` |
 | GET | `/auth/me` | ✓ | The current user | `200` | `401` |
 | POST | `/auth/logout` | ✓ | Revoke the current token | `204` | `401` |
 | GET | `/books` | ✓ | List, search and paginate books | `200` | `400`, `401` |
@@ -172,7 +172,7 @@ Response `201`:
 `409` if the username is already taken.
 
 #### `POST /auth/token`
-Logs in with `{"username": "...", "password": "..."}`. The register length rules don't apply here: any wrong, unknown or missing credentials return `401`. Only a malformed body (bad JSON or non-string fields) returns `400`.
+Logs in with `{"username": "...", "password": "..."}`. The register length rules don't apply here: any wrong, unknown or missing credentials return `401`. This includes an empty or malformed body. Form-encoded bodies (`username=...&password=...`) are accepted too.
 
 Response `200`:
 ```json
